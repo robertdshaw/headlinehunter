@@ -705,7 +705,7 @@ def main():
         horizontal=True,
     )
 
-    if mode == "Single Headline":
+    if mode == "🎯 Single Headline":
         col1, col2 = st.columns([2, 1])
 
         with col1:
