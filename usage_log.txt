@@ -17,3 +17,4 @@
 {"timestamp": "2025-07-17T13:13:41.415324", "event": "headline_optimization", "data": {"headline": "Trump discussed firing Fed boss but 'highly unlikely' he will", "category": "business", "mode": "single"}}
 {"timestamp": "2025-07-17T13:13:55.266914", "event": "headline_optimization", "data": {"headline": "Trump discussed firing Fed boss but 'highly unlikely' he will", "category": "business", "mode": "single"}}
 {"timestamp": "2025-07-17T13:16:31.014820", "event": "headline_optimization", "data": {"headline": "Trump discussed firing Fed boss but 'highly unlikely' he will", "category": "business", "mode": "single"}}
+{"timestamp": "2025-07-17T21:07:49.182771", "event": "headline_optimization", "data": {"headline": "Farage and Corbyn likely biggest winners of votes for 16 and 17-year-olds", "category": "news", "mode": "single"}}
