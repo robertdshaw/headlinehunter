@@ -42,18 +42,18 @@ USER_CATEGORIES = [
 ]
 
 CATEGORY_OPTIONS = {
-    "news": "📰 Breaking News",
-    "sports": "⚽ Sports",
-    "business": "💼 Business",
-    "technology": "💻 Technology",
-    "health": "🏥 Health & Wellness",
-    "lifestyle": "🌟 Lifestyle",
-    "entertainment": "🎬 Entertainment",
-    "travel": "✈️ Travel",
-    "food": "🍕 Food & Dining",
-    "science": "🔬 Science",
-    "politics": "🏛️ Politics",
-    "culture": "🎨 Arts & Culture",
+    "news": "Breaking News",
+    "sports": "Sports",
+    "business": "Business",
+    "technology": "Technology",
+    "health": "Health & Wellness",
+    "lifestyle": "Lifestyle",
+    "entertainment": "Entertainment",
+    "travel": "Travel",
+    "food": "Food & Dining",
+    "science": "Science",
+    "politics": "Politics",
+    "culture": "Arts & Culture",
 }
 
 MODEL_DIR = Path("model_output")
@@ -73,7 +73,7 @@ def log_event(event_type, data):
         with open("usage_log.txt", "a") as f:
             f.write(json.dumps(log_entry) + "\n")
     except:
-        pass  # Fail silently if can't write
+        pass
 
 
 def get_usage_stats():
@@ -155,12 +155,10 @@ def create_category_selector(key_prefix=""):
     st.markdown("**Category:**")
     st.markdown('<div class="category-container">', unsafe_allow_html=True)
 
-    # Initialize session state
     session_key = f"selected_category_{key_prefix}"
     if session_key not in st.session_state:
         st.session_state[session_key] = "news"
 
-    # Create 4x3 grid
     rows = [st.columns(4) for _ in range(3)]
 
     for i, cat in enumerate(USER_CATEGORIES):
@@ -178,8 +176,6 @@ def create_category_selector(key_prefix=""):
                     st.session_state[session_key] = cat
 
     st.markdown("</div>", unsafe_allow_html=True)
-
-    # Show selection
     selected = st.session_state[session_key]
     st.markdown(
         f"""
@@ -198,7 +194,6 @@ def create_category_selector(key_prefix=""):
     """,
         unsafe_allow_html=True,
     )
-
     return selected
 
 
@@ -219,11 +214,8 @@ def load_model():
         if metadata_file.exists():
             with open(metadata_file, "r") as f:
                 metadata = json.load(f)
-
-        # Load baseline metrics from your actual EDA insights
         baseline_metrics = {}
         try:
-            # Try the preprocessed data directory first
             eda_path = "data/preprocessed/processed_data/headline_eda_insights.json"
             if not Path(eda_path).exists():
                 eda_path = "headline_eda_insights.json"
@@ -239,7 +231,6 @@ def load_model():
                     },
                 )
         except:
-            # Fallback to metadata values
             baseline_metrics = {
                 "overall_avg_ctr": metadata.get("target_statistics", {}).get(
                     "mean_ctr", 0.041
@@ -281,12 +272,10 @@ def load_llm_rewriter():
         components = load_preprocessing_components()
 
         if model_pipeline and components:
-            # Try the preprocessed data directory first
             eda_insights_path = (
                 "data/preprocessed/processed_data/headline_eda_insights.json"
             )
             if not Path(eda_insights_path).exists():
-                # Fall back to project root
                 eda_insights_path = "headline_eda_insights.json"
 
             return llm_rewriter.EnhancedLLMHeadlineRewriter(
@@ -300,8 +289,7 @@ def load_llm_rewriter():
 
     except Exception as e:
         st.error(f"Error loading LLM rewriter: {e}")
-        # Show the actual error for debugging
-        with st.expander("🔍 Debug Info"):
+        with st.expander("Debug Info"):
             import traceback
 
             st.code(traceback.format_exc())
@@ -316,10 +304,8 @@ def predict_engagement(
         return None
 
     try:
-        # Create features using exact replication of preprocessing pipeline
         features = create_article_features_exact(title, abstract, category, components)
 
-        # Create feature vector in the exact order expected by the model
         feature_order = components.get("feature_order", [])
 
         if feature_order:
@@ -336,11 +322,9 @@ def predict_engagement(
 
         feature_vector = np.array(feature_vector).reshape(1, -1)
 
-        # Predict
         prediction = model_pipeline["model"].predict(feature_vector)[0]
         prediction_proba = model_pipeline["model"].predict_proba(feature_vector)[0]
 
-        # Convert engagement probability to estimated CTR
         engagement_prob = float(prediction_proba[1])
         estimated_ctr = max(0.01, engagement_prob * 0.1)
 
@@ -360,18 +344,12 @@ def predict_engagement(
 def get_personalized_tips(features, result, improvement):
     """Generate personalized optimization tips based on analysis"""
     tips = []
-
-    # Only provide tips if there's room for improvement
-    if improvement >= 2:  # If improvement is good, no tips needed
+    if improvement >= 2:
         return []
-
-    # Feature-based tips for headlines that need improvement
     if not features.get("has_number", 0):
         tips.append("Add specific numbers or statistics for credibility")
-
     if not features.get("has_question", 0):
         tips.append("Turn into a question to spark curiosity")
-
     if features.get("title_length", 0) > 75:
         tips.append("Shorten headline - aim for under 75 characters")
 
@@ -381,48 +359,36 @@ def get_personalized_tips(features, result, improvement):
     elif word_count > 15:
         tips.append("Simplify language - long headlines lose engagement")
 
-    # Readability tips
     if features.get("title_reading_ease", 50) < 50:
         tips.append("Use simpler words to improve readability")
 
-    # Performance-based tips
     if result["estimated_ctr"] < 0.03:
         tips.append("Consider using emotional triggers or urgency words")
         tips.append("Try power words like 'exclusive', 'breaking', or 'revealed'")
 
-    return tips[:3]  # Return top 3 tips
+    return tips[:3]
 
 
 def process_batch_headlines(uploaded_file, llm_rewriter, model_pipeline, components):
     """Process batch uploaded headlines"""
     try:
-        # Read the CSV file
         df = pd.read_csv(uploaded_file)
-
-        # Validate required columns
         if "headline" not in df.columns:
             st.error("CSV must contain a 'headline' column")
             return None
-
-        # Add category column if not present
         if "category" not in df.columns:
             df["category"] = "news"
-
         results = []
         progress_bar = st.progress(0)
 
         for idx, row in df.iterrows():
             progress_bar.progress((idx + 1) / len(df))
-
             headline = row["headline"]
             category = map_user_category_to_model(row.get("category", "news"))
-
-            # Get original prediction
             original_result = predict_engagement(
                 headline, "", category, model_pipeline, components
             )
 
-            # Get optimized headline
             article_data = {"category": category, "abstract": ""}
             rewrite_result = llm_rewriter.get_best_headline(headline, article_data)
 
@@ -460,7 +426,6 @@ def process_batch_headlines(uploaded_file, llm_rewriter, model_pipeline, compone
 
 
 def main():
-    # Page configuration
     st.set_page_config(
         page_title="Headline Hunter",
         page_icon="⚡",
@@ -468,12 +433,9 @@ def main():
         initial_sidebar_state="expanded",
     )
 
-    # Add this to track page visits
-    # AFTER: Only logs when YOU set development mode
     if os.getenv("STREAMLIT_ENV") == "development":
         log_event("page_visit", {"user_agent": "streamlit_user"})
 
-    # Enhanced CSS Styles with Mobile Optimization
     st.markdown(
         """
         <style>
@@ -635,11 +597,8 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Header with logo - try to load your logo first, fallback to placeholder
     logo_path = Path("NEXUS_MARK_cmyk_page-0001-remove-background.com.png")
-
     if logo_path.exists():
-        # Display your actual logo with proper header
         st.markdown(
             """
         <div class="main-header">
@@ -647,8 +606,6 @@ def main():
         """,
             unsafe_allow_html=True,
         )
-
-        # Display logo using Streamlit's image function
         col_logo, col_title = st.columns([1, 4])
         with col_logo:
             st.image(str(logo_path), width=100)
@@ -664,7 +621,6 @@ def main():
 
         st.markdown("</div></div>", unsafe_allow_html=True)
     else:
-        # Fallback header with placeholder
         st.markdown(
             """
         <div class="main-header">
@@ -679,25 +635,18 @@ def main():
         """,
             unsafe_allow_html=True,
         )
-
-    # Load all systems once at startup
     with st.spinner("Loading AI systems..."):
         model_pipeline = load_model()
         preprocessing_components = load_preprocessing_components()
         llm_rewriter = load_llm_rewriter()
 
-    # Admin panel - completely hidden until correct password
     admin_key = os.getenv("ADMIN_PASSWORD")
     show_admin = False
 
     if admin_key:
-        # Check if correct password was entered (using session state)
         if "admin_authenticated" not in st.session_state:
             st.session_state.admin_authenticated = False
-
-        # Only show password field in main area if not authenticated
         if not st.session_state.admin_authenticated:
-            # Hide sidebar completely for public users
             st.markdown(
                 """
             <style>
@@ -706,9 +655,7 @@ def main():
             """,
                 unsafe_allow_html=True,
             )
-
-            # Show password input in main area (discrete)
-            with st.expander("🔐 Admin Access", expanded=False):
+            with st.expander("Admin Access", expanded=False):
                 entered_password = st.text_input(
                     "Password:", type="password", key="admin_main"
                 )
@@ -716,16 +663,13 @@ def main():
                     st.session_state.admin_authenticated = True
                     st.rerun()
         else:
-            # Authenticated - show admin in sidebar
             st.sidebar.markdown("👤 **Admin Panel**")
-
-            # Logout button
             if st.sidebar.button("🚪 Logout"):
                 st.session_state.admin_authenticated = False
                 st.rerun()
 
             logs = get_usage_stats()
-            st.sidebar.success(f"✅ {len(logs)} interactions logged")
+            st.sidebar.success(f" {len(logs)} interactions logged")
 
             # Metrics
             st.sidebar.metric("Total Interactions", len(logs))
@@ -737,8 +681,6 @@ def main():
                 "Batch Uploads",
                 len([l for l in logs if l["event"] == "batch_optimization"]),
             )
-
-            # Download button
             if logs:
                 log_data = "\n".join([json.dumps(log) for log in logs])
                 st.sidebar.download_button(
@@ -748,7 +690,6 @@ def main():
                     mime="text/plain",
                 )
     else:
-        # No admin password set - hide sidebar completely
         st.markdown(
             """
         <style>
@@ -758,26 +699,23 @@ def main():
             unsafe_allow_html=True,
         )
 
-    # Mode selector
     mode = st.radio(
         "Choose optimization mode:",
         ["🎯 Single Headline", "📊 Batch Upload", "⚖️ Comparison Mode"],
         horizontal=True,
     )
 
-    if mode == "🎯 Single Headline":
+    if mode == "Single Headline":
         col1, col2 = st.columns([2, 1])
 
         with col1:
             st.subheader("Optimize Your Headline")
             title = st.text_area("Headline", placeholder="Enter your headline here...")
 
-            # Use the category selector
             category = create_category_selector("single")
             optimize_btn = st.button("🚀 Optimize Headline", type="primary")
 
         with col2:
-            # Simplified How to Use guide
             st.markdown("### 🚀 How to Use")
             st.markdown(
                 """
@@ -791,17 +729,12 @@ def main():
 
         if optimize_btn and title.strip():
             if model_pipeline and preprocessing_components and llm_rewriter:
-                # Map user category to model category
                 model_category = map_user_category_to_model(category)
-
-                # Log the event
                 log_event(
                     "headline_optimization",
                     {"headline": title, "category": category, "mode": "single"},
                 )
-
-                with st.spinner("🤖 Optimizing your headline..."):
-                    # Get original prediction
+                with st.spinner("Optimizing your headline..."):
                     original_result = predict_engagement(
                         title,
                         "",
@@ -809,8 +742,6 @@ def main():
                         model_pipeline,
                         preprocessing_components,
                     )
-
-                    # Get optimized headline
                     article_data = {"category": model_category, "abstract": ""}
                     rewrite_result = llm_rewriter.get_best_headline(title, article_data)
 
@@ -824,7 +755,6 @@ def main():
                     )
 
                     if original_result and optimized_result:
-                        # Calculate improvement
                         original_ctr = original_result["estimated_ctr"]
                         optimized_ctr = optimized_result["estimated_ctr"]
                         improvement = (
@@ -833,7 +763,6 @@ def main():
                             else 0
                         )
 
-                        # Display results in comparison format
                         st.markdown("### 📊 Optimization Results")
 
                         col_orig, col_opt = st.columns(2)
@@ -902,11 +831,7 @@ def main():
                             st.warning(
                                 f"⚠️ **Consider revising:** {improvement:.1f}% change detected"
                             )
-
-                        # Personalized tips - only show if there's meaningful room for improvement
-                        if (
-                            improvement < 2
-                        ):  # Only show tips if improvement is less than 2%
+                        if improvement < 2:
                             tips = get_personalized_tips(
                                 original_result["features"],
                                 original_result,
@@ -920,13 +845,10 @@ def main():
                                     st.markdown(f"• {tip}")
 
     elif mode == "📊 Batch Upload":
-        # Batch upload section
         st.subheader("📊 Batch Headline Optimization")
         st.write(
             "Upload a CSV file with headlines to optimize multiple headlines at once"
         )
-
-        # Create sample CSV for download
         sample_data = {
             "headline": [
                 "Scientists Discover New Species in Ocean",
@@ -940,7 +862,6 @@ def main():
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            # File upload
             uploaded_file = st.file_uploader(
                 "Upload CSV file",
                 type=["csv"],
@@ -956,8 +877,6 @@ def main():
 "Another headline","sports"
 """
             )
-
-            # Download sample template
             csv_sample = sample_df.to_csv(index=False)
             st.download_button(
                 label="📥 Download Sample CSV",
@@ -968,15 +887,12 @@ def main():
 
         if uploaded_file is not None:
             if model_pipeline and preprocessing_components and llm_rewriter:
-                # Log batch optimization event
                 log_event(
                     "batch_optimization",
                     {"filename": uploaded_file.name, "mode": "batch"},
                 )
 
                 st.write("Processing your headlines...")
-
-                # Process the batch
                 results_df = process_batch_headlines(
                     uploaded_file,
                     llm_rewriter,
@@ -989,7 +905,6 @@ def main():
                         f"✅ Processed {len(results_df)} headlines successfully!"
                     )
 
-                    # Show summary statistics
                     col1, col2, col3 = st.columns(3)
 
                     with col1:
@@ -1003,7 +918,6 @@ def main():
                         st.metric("Headlines Improved", improved_count)
 
                     with col2:
-                        # Calculate average improvement (convert percentage strings to numbers)
                         improvements = (
                             results_df["improvement"]
                             .str.replace("%", "")
@@ -1017,11 +931,9 @@ def main():
                         best_improvement = improvements.max()
                         st.metric("Best Improvement", f"{best_improvement:+.1f}%")
 
-                    # Display results table
                     st.subheader("📊 Optimization Results")
                     st.dataframe(results_df, use_container_width=True)
 
-                    # Download results
                     csv_results = results_df.to_csv(index=False)
                     st.download_button(
                         label="📥 Download Results",
@@ -1030,11 +942,11 @@ def main():
                         mime="text/csv",
                     )
             else:
-                st.error("❌ Required systems not loaded. Please refresh the page.")
+                st.error("Required systems not loaded. Please refresh the page.")
 
     elif mode == "⚖️ Comparison Mode":
         # Comparison mode
-        st.subheader("⚖️ Compare Headlines Side-by-Side")
+        st.subheader("Compare Headlines Side-by-Side")
         st.write("Test multiple headline variations against each other")
 
         # Input multiple headlines first
@@ -1046,13 +958,12 @@ def main():
         st.markdown("### Enter Headlines to Compare")
 
         headlines = []
-        # Use responsive columns that stack on mobile
         if num_headlines <= 2:
             cols = st.columns(2)
         elif num_headlines <= 3:
             cols = st.columns(3)
         else:
-            cols = st.columns(2)  # For 4-5 headlines, use 2 columns to avoid cramping
+            cols = st.columns(2)
 
         for i in range(num_headlines):
             col_idx = i % len(cols)
@@ -1060,27 +971,22 @@ def main():
                 headline = st.text_area(
                     f"Headline {i+1}:",
                     placeholder=f"Enter headline {i+1}...",
-                    key=f"comparison_headline_{i}",  # Changed key to avoid conflicts
+                    key=f"comparison_headline_{i}",
                     height=80,
                 )
                 if headline.strip():
                     headlines.append(headline)
 
-        # Show how many headlines are entered
         if headlines:
             st.info(f"📝 {len(headlines)} headlines entered and ready to compare")
 
         if st.button("📊 Compare Headlines", type="primary") and len(headlines) >= 2:
             if model_pipeline and preprocessing_components:
-                # Log comparison
                 log_event(
                     "headline_comparison",
                     {"headlines_count": len(headlines), "category": category},
                 )
-
-                # Map user category to model category
                 model_category = map_user_category_to_model(category)
-
                 with st.spinner("Analyzing headlines..."):
                     comparison_results = []
 
@@ -1108,52 +1014,45 @@ def main():
                             )
 
                     if comparison_results:
-                        # Sort by CTR score
                         comparison_results.sort(key=lambda x: x["Score"], reverse=True)
-
-                        # Display results
-                        st.subheader("🏆 Comparison Results")
+                        st.subheader("Comparison Results")
 
                         for i, result in enumerate(comparison_results):
                             if i == 0:
                                 st.success(
-                                    f"🥇 **Winner:** {result['Headline']} - {result['CTR']}"
+                                    f"**Winner:** {result['Headline']} - {result['CTR']}"
                                 )
                             elif i == 1:
                                 st.info(
-                                    f"🥈 **Runner-up:** {result['Headline']} - {result['CTR']}"
+                                    f"**Runner-up:** {result['Headline']} - {result['CTR']}"
                                 )
                             else:
                                 st.write(
                                     f"{i+1}. {result['Headline']} - {result['CTR']}"
                                 )
 
-                        # Detailed comparison table
                         comparison_df = pd.DataFrame(comparison_results)[
                             ["Headline", "CTR", "Engagement"]
                         ]
                         st.dataframe(comparison_df, use_container_width=True)
-
-                        # Download comparison results
                         csv_comparison = comparison_df.to_csv(index=False)
                         st.download_button(
-                            label="📥 Download Comparison Results",
+                            label="Download Comparison Results",
                             data=csv_comparison,
                             file_name=f"headline_comparison_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                             mime="text/csv",
                         )
                     else:
                         st.error(
-                            "❌ Failed to analyze headlines. Please check your inputs and try again."
+                            "Failed to analyze headlines. Please check your inputs and try again."
                         )
             else:
-                st.error("❌ Required systems not loaded. Please refresh the page.")
+                st.error("Required systems not loaded. Please refresh the page.")
         elif len(headlines) < 2 and len(headlines) > 0:
-            st.warning("⚠️ Please enter at least 2 headlines to compare.")
+            st.warning("Please enter at least 2 headlines to compare.")
         elif len(headlines) == 0:
-            st.info("📝 Enter your headlines above to start comparing.")
+            st.info("Enter your headlines above to start comparing.")
 
-    # Footer
     st.markdown("---")
     st.markdown(
         "**Headline Hunter** | Built with Streamlit, XGBoost, and OpenAI | "

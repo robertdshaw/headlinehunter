@@ -9,24 +9,20 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# Constants
 PREP_DIR = Path("data/preprocessed")
 
 
 def load_preprocessing_components():
     """Load preprocessing components for exact feature replication"""
     try:
-        # Load preprocessing metadata
         with open(
             PREP_DIR / "processed_data" / "preprocessing_metadata.json", "r"
         ) as f:
             preprocessing_metadata = json.load(f)
 
-        # Load category encoder
         with open(PREP_DIR / "processed_data" / "category_encoder.pkl", "rb") as f:
             category_encoder = pickle.load(f)
 
-        # Load PCA transformer if available
         pca_transformer = None
         pca_file = PREP_DIR / "processed_data" / "pca_transformer.pkl"
         if pca_file.exists():
@@ -47,7 +43,6 @@ def load_preprocessing_components():
         return None
 
 
-# Cache the embedder to avoid reloading
 _embedder = None
 
 
@@ -76,17 +71,17 @@ def create_article_features_exact(title, abstract="", category="news", component
 
     features = {}
 
-    # ========== STEP 1: Basic text features (exact replication) ==========
+    # Basic text features
     features["title_length"] = len(title)
     features["abstract_length"] = len(abstract)
     features["title_word_count"] = len(title.split())
     features["abstract_word_count"] = len(abstract.split())
 
-    # ========== STEP 2: Flesch Reading Ease (exact replication) ==========
+    # Flesch Reading Ease
     features["title_reading_ease"] = flesch_reading_ease(title) if title else 0
     features["abstract_reading_ease"] = flesch_reading_ease(abstract) if abstract else 0
 
-    # ========== STEP 3: Headline Quality Indicators (exact replication) ==========
+    # Headline Quality Indicators
     features["has_question"] = 1 if "?" in title else 0
     features["has_exclamation"] = 1 if "!" in title else 0
     features["has_number"] = 1 if any(c.isdigit() for c in title) else 0
@@ -94,7 +89,7 @@ def create_article_features_exact(title, abstract="", category="news", component
     features["has_quotes"] = 1 if any(q in title for q in ['"', "'", '"', '"']) else 0
     features["has_dash"] = 1 if any(d in title for d in ["-", "–", "—"]) else 0
 
-    # ========== STEP 4: Advanced headline metrics (exact replication) ==========
+    # Advanced headline metrics
     features["title_upper_ratio"] = (
         sum(c.isupper() for c in title) / len(title) if title else 0
     )
@@ -105,13 +100,13 @@ def create_article_features_exact(title, abstract="", category="news", component
         np.mean([len(word) for word in title.split()]) if title.split() else 0
     )
 
-    # ========== STEP 5: Content depth indicators (exact replication) ==========
+    # Content depth indicators
     features["has_abstract"] = 1 if len(abstract) > 0 else 0
     features["title_abstract_ratio"] = features["title_length"] / (
         features["abstract_length"] + 1
     )
 
-    # ========== STEP 6: Editorial scores  ==========
+    # Editorial scores
     features["editorial_readability_score"] = (
         np.clip(features["title_reading_ease"] / 100, 0, 1)
         * EDITORIAL_CRITERIA["readability_weight"]
@@ -122,7 +117,7 @@ def create_article_features_exact(title, abstract="", category="news", component
         * EDITORIAL_CRITERIA["headline_quality_weight"]
     )
 
-    # ========== STEP 7: Editorial quality flags  ==========
+    # Editorial quality flags
     features["needs_readability_improvement"] = (
         1
         if features["title_reading_ease"] < EDITORIAL_CRITERIA["target_reading_ease"]
@@ -141,7 +136,7 @@ def create_article_features_exact(title, abstract="", category="news", component
         1 if features["title_length"] > EDITORIAL_CRITERIA["max_title_length"] else 0
     )
 
-    # ========== STEP 8: Category encoding ==========
+    # Category encoding
     if components and components["category_encoder"] is not None:
         try:
             category_encoder = components["category_encoder"]
@@ -167,33 +162,26 @@ def create_article_features_exact(title, abstract="", category="news", component
     else:
         features["category_enc"] = 0
 
-    # ========== STEP 9: Create title embeddings ==========
+    # Create title embeddings
     try:
         embedder = get_embedder()
         title_embedding = embedder.encode([title])[0]
 
-        # Add full embeddings first
         for i, emb_val in enumerate(title_embedding[:384]):
             features[f"title_emb_{i}"] = float(emb_val)
 
-        # Apply PCA if transformer is available
         if components and components["pca_transformer"] is not None:
-            # Create embedding matrix for PCA transformation
             embedding_matrix = np.array([title_embedding[:384]]).astype(np.float32)
             pca_embeddings = components["pca_transformer"].transform(embedding_matrix)[
                 0
             ]
-
-            # Add PCA features (these will be used if model was trained with PCA)
             for i, pca_val in enumerate(pca_embeddings):
                 features[f"title_pca_{i}"] = float(pca_val)
 
     except Exception as e:
         print(f"Could not create embeddings for title: {e}")
-        # Add zero embeddings as fallback
         for i in range(384):
             features[f"title_emb_{i}"] = 0.0
-        # Add zero PCA features if PCA was expected
         if components and components["pca_transformer"] is not None:
             for i in range(components["pca_transformer"].n_components_):
                 features[f"title_pca_{i}"] = 0.0
