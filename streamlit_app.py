@@ -713,10 +713,10 @@ def main():
             title = st.text_area("Headline", placeholder="Enter your headline here...")
 
             category = create_category_selector("single")
-            optimize_btn = st.button("🚀 Optimize Headline", type="primary")
+            optimize_btn = st.button("Optimize Headline", type="primary")
 
         with col2:
-            st.markdown("### 🚀 How to Use")
+            st.markdown("### How to Use")
             st.markdown(
                 """
             1. **Enter your headline** in the text box
@@ -1062,6 +1062,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 # import os
 # import torch
 
