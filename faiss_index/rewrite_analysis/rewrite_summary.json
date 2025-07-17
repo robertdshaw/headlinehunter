@@ -1,0 +1,21 @@
+{
+  "total_rewrites": 8,
+  "unique_originals": 2,
+  "strategies_tested": [
+    "comprehensive",
+    "engagement",
+    "readability",
+    "structure"
+  ],
+  "average_quality_improvement": 0.1956152758699634,
+  "average_readability_improvement": -9.337331730769234,
+  "average_predicted_ctr_improvement": 0.0,
+  "average_model_ctr_improvement": 0.000583418644964695,
+  "best_performing_strategy_by_model": "readability",
+  "best_performing_strategy_by_quality": "readability",
+  "semantic_similarity_maintained": 0.0,
+  "model_based_ctr_used": true,
+  "positive_model_improvements": 5,
+  "negative_model_improvements": 3,
+  "best_model_improvement": 0.001969028264284134
+}
