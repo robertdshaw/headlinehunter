@@ -52,7 +52,7 @@ try:
     print(f"  Test: {len(test_metadata):,} articles")
 
 except Exception as e:
-    print(f"❌ Error loading article metadata: {e}")
+    print(f"Error loading article metadata: {e}")
     print("Please run the EDA preprocessing script first!")
     exit(1)
 
@@ -74,20 +74,18 @@ try:
     # Load preprocessing components
     with open(PREP_DIR / "processed_data" / "category_encoder.pkl", "rb") as f:
         category_encoder = pickle.load(f)
-
-        # Load PCA transformer if available
     pca_transformer = None
     pca_file = PREP_DIR / "processed_data" / "pca_transformer.pkl"
     if pca_file.exists():
         try:
             with open(pca_file, "rb") as f:
                 pca_transformer = pickle.load(f)
-            print(f"✅ PCA transformer loaded: {type(pca_transformer)}")
+            print(f"PCA transformer loaded: {type(pca_transformer)}")
             print(
                 f"   PCA components: {getattr(pca_transformer, 'n_components_', 'Unknown')}"
             )
         except Exception as e:
-            print(f"❌ PCA transformer loading failed: {e}")
+            print(f" PCA transformer loading failed: {e}")
             pca_transformer = None
     else:
         print("ℹ️ No PCA transformer file found - proceeding without PCA")
@@ -96,12 +94,12 @@ try:
     training_median_ctr = preprocessing_metadata.get("training_median_ctr", 0.030)
     feature_order = preprocessing_metadata.get("available_features", [])
 
-    print("✅ Model and preprocessing components loaded successfully")
+    print(" Model and preprocessing components loaded successfully")
     print(f"  Training median CTR: {training_median_ctr:.6f}")
     print(f"  Expected features: {len(feature_order)}")
 
 except Exception as e:
-    print(f"⚠️ Warning: Could not load trained model or preprocessing components: {e}")
+    print(f"Warning: Could not load trained model or preprocessing components: {e}")
     print("Proceeding without model-based CTR predictions")
     trained_model = None
     category_encoder = None
@@ -116,7 +114,6 @@ print(
     f"\nStep 3: Analyzing headline rewrites with LLM ({CONFIG['rewrite_sample_size']} samples)..."
 )
 
-# Create model pipeline and components for the rewriter
 model_pipeline = {
     "model": trained_model,
     "baseline_metrics": {"overall_avg_ctr": training_median_ctr},
@@ -125,7 +122,7 @@ model_pipeline = {
 components = {
     "feature_order": feature_order,
     "category_encoder": category_encoder,
-    "pca_transformer": pca_transformer,  # Add this line!
+    "pca_transformer": pca_transformer,
 }
 
 rewriter = EnhancedLLMHeadlineRewriter(
@@ -148,7 +145,6 @@ embedder = SentenceTransformer("all-MiniLM-L6-v2")
 rewrite_results = []
 
 for idx, article in low_performing_headlines.iterrows():
-    # Predict CTR for original article using exact feature replication
     if trained_model is not None:
         original_predicted_ctr = rewriter.predict_ctr_with_model(
             article["title"],
@@ -162,7 +158,7 @@ for idx, article in low_performing_headlines.iterrows():
 
     article_data = {
         "category": article.get("category", "news"),
-        "ctr": original_predicted_ctr,  # Use model-predicted CTR
+        "ctr": original_predicted_ctr,
         "readability": article.get("title_reading_ease", 60),
         "abstract": article.get("abstract", ""),
     }
@@ -171,9 +167,7 @@ for idx, article in low_performing_headlines.iterrows():
     variants = rewriter.create_rewrite_variants(article["title"], article_data)
 
     for strategy, rewritten_title in variants.items():
-        if rewritten_title != article["title"]:  # Only include actual rewrites
-
-            # **KEY CHANGE: Use model with exact feature replication for rewritten headline**
+        if rewritten_title != article["title"]:
             if trained_model is not None:
                 rewritten_predicted_ctr = rewriter.predict_ctr_with_model(
                     rewritten_title,
@@ -182,8 +176,6 @@ for idx, article in low_performing_headlines.iterrows():
                         "category": article.get("category", "news"),
                     },
                 )
-
-                # Calculate ACTUAL model-based CTR improvement
                 model_ctr_improvement = rewritten_predicted_ctr - original_predicted_ctr
             else:
                 rewritten_predicted_ctr = original_predicted_ctr
@@ -408,8 +400,6 @@ print(
 print("\nStep 5: Creating embeddings for all articles and rewrite variants...")
 
 titles = all_metadata["title"].fillna("").tolist()
-
-# Process in batches
 batch_size = 1000
 all_embeddings = []
 
@@ -473,40 +463,20 @@ article_id_to_idx = {}
 for i, news_id_val in enumerate(all_metadata["newsID"]):
     if news_id_val not in article_id_to_idx:
         article_id_to_idx[news_id_val] = i
-
-# print("\nStep 7: Creating enhanced article lookup system...")
-
-# if all_metadata.duplicated(subset=["newsID"]).any():
-#     print(
-#         f"INFO: Duplicate newsIDs detected in `all_metadata`. This is expected if articles span train/val/test periods."
-#     )
-#     print(
-#         f"      For `article_lookup`, the metadata from the *first occurrence* of each newsID will be used."
-#     )
-#     # Create a version of all_metadata with unique newsIDs for the article_lookup dictionary
-#     all_metadata_for_lookup = all_metadata.drop_duplicates(
-#         subset=["newsID"], keep="first"
-#     )
-#     article_lookup = all_metadata_for_lookup.set_index("newsID").to_dict("index")
-# else:
-#     # If no duplicates, proceed as before
-#     article_lookup = all_metadata.set_index("newsID").to_dict("index")
-
 idx_to_article_id = dict(enumerate(all_metadata["newsID"]))
-
 article_id_to_idx = {}
 for i, news_id_val in enumerate(all_metadata["newsID"]):
     if news_id_val not in article_id_to_idx:
         article_id_to_idx[news_id_val] = i
 
 print(f"Article lookup system created:")
-print(f"   Total rows in all_metadata (and FAISS index): {len(all_metadata):,}")
-print(f"   Unique newsIDs in article_lookup: {len(article_lookup):,}")
+print(f"Total rows in all_metadata (and FAISS index): {len(all_metadata):,}")
+print(f"Unique newsIDs in article_lookup: {len(article_lookup):,}")
 print(
-    f"   Original articles in all_metadata: {len(all_metadata[all_metadata['dataset'] != 'rewrite_variant']):,}"
+    f"Original articles in all_metadata: {len(all_metadata[all_metadata['dataset'] != 'rewrite_variant']):,}"
 )
 print(
-    f"   Rewrite variants in all_metadata: {len(all_metadata[all_metadata['dataset'] == 'rewrite_variant']):,}"
+    f"Rewrite variants in all_metadata: {len(all_metadata[all_metadata['dataset'] == 'rewrite_variant']):,}"
 )
 
 # ============================================================================
@@ -556,44 +526,30 @@ def compare_original_vs_rewrites(original_newsID):
 
     original_article_data = article_lookup[original_newsID].copy()
     original_article_data["newsID"] = original_newsID
-
-    # Find rewrite variants
     rewrite_variants_list = []
     for (
         current_newsid,
         info_dict,
-    ) in article_lookup.items():  # newsid_key is the actual newsID from article_lookup
+    ) in article_lookup.items():
         if info_dict.get("original_newsID") == original_newsID:
-            # info_dict does not contain 'newsID' as a key because it was the index.
-            # Add it back for consistent structure.
             variant_to_append = info_dict.copy()
-            variant_to_append["newsID"] = (
-                current_newsid  # Add the actual newsID of the variant
-            )
+            variant_to_append["newsID"] = current_newsid
             rewrite_variants_list.append(variant_to_append)
 
-    # Get similarity scores between original and variants
     if rewrite_variants_list:
-        if (
-            original_newsID in article_id_to_idx
-        ):  # Check if original_newsID has a direct index mapping
+        if original_newsID in article_id_to_idx:
             original_idx = article_id_to_idx[original_newsID]
-            # Ensure embedding_matrix is accessible (it should be global in the script or passed appropriately)
             original_embedding = embedding_matrix[original_idx : original_idx + 1]
 
             for variant in rewrite_variants_list:
-                if (
-                    variant["newsID"] in article_id_to_idx
-                ):  # Check if variant newsID has a mapping
+                if variant["newsID"] in article_id_to_idx:
                     variant_idx = article_id_to_idx[variant["newsID"]]
                     variant_embedding = embedding_matrix[variant_idx : variant_idx + 1]
 
                     similarity = np.dot(original_embedding, variant_embedding.T)[0, 0]
                     variant["similarity_to_original"] = float(similarity)
                 else:
-                    variant["similarity_to_original"] = (
-                        np.nan
-                    )  # Or some other placeholder
+                    variant["similarity_to_original"] = np.nan
                     print(
                         f"Warning: newsID {variant['newsID']} for variant not found in article_id_to_idx."
                     )
@@ -605,8 +561,7 @@ def compare_original_vs_rewrites(original_newsID):
                 variant["similarity_to_original"] = np.nan
 
     return {
-        "original": original_article_data,  # Use the fetched and potentially augmented original_article_data
-        "variants": rewrite_variants_list,
+        "original": original_article_data,
         "comparison_available": len(rewrite_variants_list) > 0,
     }
 
@@ -745,7 +700,7 @@ print("\n" + "=" * 80)
 print("ENHANCED FAISS INDEX WITH LLM REWRITES COMPLETED")
 print("=" * 80)
 
-print(f"\n📊 INDEX STATISTICS:")
+print(f"\n INDEX STATISTICS:")
 print(f"  Total articles indexed: {index_metadata['total_articles']:,}")
 print(f"  Original articles: {index_metadata['original_articles']:,}")
 print(f"  Rewrite variants: {index_metadata['rewrite_variants']:,}")
@@ -775,18 +730,17 @@ if rewrite_summary:
     print(f"  Positive improvements: {rewrite_summary['positive_model_improvements']}")
     print(f"  Best model improvement: +{rewrite_summary['best_model_improvement']:.4f}")
 
-print(f"\n🔍 ENHANCED CAPABILITIES:")
-print(f"  ✅ Original article search")
-print(f"  ✅ Rewrite variant comparison")
-print(f"  ✅ A/B testing preparation")
-print(f"  ✅ Quality improvement tracking")
-print(f"  ✅ Editorial optimization insights")
-print(f"  ✅ Model-integrated CTR prediction")
+print(f"\n ENHANCED CAPABILITIES:")
+print(f"   Original article search")
+print(f"   Rewrite variant comparison")
+print(f"   A/B testing preparation")
+print(f"   Quality improvement tracking")
+print(f"   Editorial optimization insights")
+print(f"   Model-integrated CTR prediction")
 
-print(f"\n📁 FILES CREATED:")
+print(f"\n FILES CREATED:")
 for file in index_metadata["files_created"]:
-    print(f"  📁 {file}")
-
+    print(f"  {file}")
 print("\n" + "=" * 80)
 print("READY FOR EDITORIAL DASHBOARD INTEGRATION")
 print("=" * 80)
